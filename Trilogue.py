@@ -37,7 +37,7 @@ class Character(str, Enum):
             case Character.CLAUDE_3_OPUS:
                 return 'Claude 3 Opus'
             case Character.GPT_4:
-                return 'GPT 4'
+                return 'GPT-4'
             case _:
                 raise NotImplementedError(self)
 
@@ -53,6 +53,10 @@ class Player:
     name: str
     index: int
 
+    @property
+    def display_name(self) -> str:
+        return f"Player #{self.index} ({self.name})"
+
 
 @dataclasses.dataclass
 class Message:
@@ -64,7 +68,7 @@ class Message:
 
     @property
     def message_prefix(self) -> str:
-        return f'**Player #{self.player.index} ({self.player.name})**'
+        return f'**{self.player.display_name}**'
 
     @property
     def llm_content(self) -> str:
@@ -75,6 +79,7 @@ class Message:
             canvas = st.empty()
         with canvas.container():
             with st.chat_message("user" if self.player.character == Character.USER else "assistant"):
+                st.markdown(self.message_prefix)
                 st.markdown(self.content)
 
 
@@ -85,9 +90,13 @@ class OpenAIBackend:
         self.self_ = self_
 
     def get_message_history(self, history: list[Message]) -> list[dict]:
-        return [{"role": self.self_.character.role_from_own_perspective(m.player.character), "content": m.llm_content}
-                for m in
-                history]
+        messages = [{"role": "system", "content": self.system_prompt}]
+        for m in history:
+            messages.append({
+                "role": self.self_.character.role_from_own_perspective(m.player.character),
+                "content": m.llm_content
+            })
+        return messages
 
     def get_next_message(self, history: list[Message]) -> Message:
         resp = self.client.chat.completions.create(
@@ -140,9 +149,12 @@ def create_backend(player: Player, system_prompt: str) -> AnthropicBackend | Ope
 if 'messages' not in st.session_state:
     st.session_state.messages = []
 
-player1 = st.text_input('Player #1', placeholder='Your name...')
-if not player1:
-    player1 = 'User'
+
+def get_player_character():
+    player1_name = st.text_input('Player #1', placeholder='User')
+    if not player1_name:
+        player1_name = 'User'
+    return Player(character=Character.USER, name=player1_name, index=1)
 
 
 def get_npc(*, index: int, default: Character):
@@ -151,17 +163,19 @@ def get_npc(*, index: int, default: Character):
     return Player(character=character, name=character.display_name, index=index)
 
 
+player = get_player_character()
 player2 = get_npc(index=2, default=Character.CLAUDE_3_OPUS)
-player2_prompt = st.text_area('Player #2 System Prompt')
+player2_prompt_default = f"You are {player2.display_name}. You are in a three-way conversation with a human user, {player.display_name}, and Player #3, another AI, potentially another copy of yourself."
+player2_prompt = st.text_area('Player #2 System Prompt', value=player2_prompt_default)
 player3 = get_npc(index=3, default=Character.GPT_4)
-player3_prompt = st.text_area('Player #3 System Prompt')
+player3_prompt_default = f"You are {player3.display_name}. You are in a three-way conversation with a human user, {player.display_name}, and {player2.display_name}, another AI, potentially another copy of yourself."
+player3_prompt = st.text_area('Player #3 System Prompt', value=player3_prompt_default)
 
 for previous_message in st.session_state.messages:
     previous_message.render()
 
-
 if prompt := st.chat_input():
-    user_message = Message(player=Player(character=Character.USER, name=player1, index=1), content=prompt)
+    user_message = Message(player=player, content=prompt)
     st.session_state.messages.append(user_message)
     user_message.render()
     player2_backend = create_backend(player2, player2_prompt)
