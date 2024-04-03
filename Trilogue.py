@@ -1,6 +1,7 @@
 import dataclasses
 import string
 from enum import Enum
+from typing import Iterable
 
 import streamlit as st
 from anthropic import Anthropic
@@ -64,10 +65,35 @@ class Player:
 @dataclasses.dataclass
 class Message:
     player: Player
-    content: str
+    content: str | Iterable[str]
 
-    def __post_init__(self):
-        self.content = self.content.removeprefix(self.message_prefix).lstrip(string.punctuation)
+    def _clean_iterable(self, content: Iterable[str]) -> Iterable[str]:
+        continue_ = True
+        it = iter(content)
+        try:
+            while continue_:
+                chunk = next(it)
+                clean = self._clean_content(chunk)
+                if clean:
+                    yield clean
+                    continue_ = False
+            yield from it
+        except StopIteration:
+            return
+
+    def _clean_content(self, content: str) -> str:
+        return content.removeprefix(self.message_prefix).lstrip(string.punctuation)
+
+    def _ensure_clean_content_iterable(self) -> Iterable[str]:
+        content = self.content
+        if isinstance(content, str):
+            yield self._clean_content(content)
+        else:
+            parts = []
+            for chunk in self._clean_iterable(content):
+                parts.append(chunk)
+                yield chunk
+            self.content = "".join(parts)
 
     @property
     def message_prefix(self) -> str:
@@ -83,7 +109,7 @@ class Message:
         with canvas.container():
             with st.chat_message("user" if self.player.character == Character.USER else "assistant"):
                 st.markdown(self.message_prefix)
-                st.markdown(self.content)
+                st.write_stream(self._ensure_clean_content_iterable())
 
 
 class OpenAIBackend:
@@ -95,6 +121,8 @@ class OpenAIBackend:
     def get_message_history(self, history: list[Message]) -> list[dict]:
         messages = [{"role": "system", "content": self.system_prompt}]
         for m in history:
+            if not isinstance(m.content, str):
+                break
             messages.append({
                 "role": self.self_.character.role_from_own_perspective(m.player.character),
                 "content": m.llm_content
@@ -102,12 +130,19 @@ class OpenAIBackend:
         return messages
 
     def get_next_message(self, history: list[Message]) -> Message:
+        content = self._get_content_stream(history)
+        return Message(player=self.self_, content=content)
+
+    def _get_content_stream(self, history: list[Message]) -> Iterable[str]:
         resp = self.client.chat.completions.create(
             model=self.self_.character.model_slug,
             messages=self.get_message_history(history),
+            stream=True,
         )
-        msg = resp.choices[0].message
-        return Message(player=self.self_, content=msg.content)
+        for chunk in resp:
+            chunk_content = chunk.choices[0].delta.content
+            if chunk_content:
+                yield chunk_content
 
 
 class AnthropicBackend:
@@ -119,6 +154,8 @@ class AnthropicBackend:
     def get_message_history(self, history: list[Message]) -> list[dict]:
         messages = []
         for m in history:
+            if not isinstance(m.content, str):
+                break
             msg_ = {"role": self.self_.character.role_from_own_perspective(m.player.character),
                     "content": m.llm_content}
             try:
@@ -131,12 +168,16 @@ class AnthropicBackend:
         return messages
 
     def get_next_message(self, history: list[Message]) -> Message:
-        message = self.client.messages.create(
-            model=self.self_.character.model_slug,
-            messages=self.get_message_history(history),
-            max_tokens=1024,
-        )
-        return Message(player=self.self_, content=message.content[0].text)
+        content = self._get_content_stream(history)
+        return Message(player=self.self_, content=content)
+
+    def _get_content_stream(self, history: list[Message]) -> Iterable[str]:
+        with self.client.messages.stream(
+                model=self.self_.character.model_slug,
+                messages=self.get_message_history(history),
+                max_tokens=1024,
+        ) as stream:
+            yield from stream.text_stream
 
 
 def create_backend(player: Player, system_prompt: str) -> AnthropicBackend | OpenAIBackend:
@@ -188,9 +229,9 @@ if prompt := st.chat_input():
     user_message.render()
     player2_backend = create_backend(player2, player2_prompt)
     player2_message = player2_backend.get_next_message(st.session_state.messages)
-    st.session_state.messages.append(player2_message)
     player2_message.render()
+    st.session_state.messages.append(player2_message)
     player3_backend = create_backend(player3, player3_prompt)
     player3_message = player3_backend.get_next_message(st.session_state.messages)
-    st.session_state.messages.append(player3_message)
     player3_message.render()
+    st.session_state.messages.append(player3_message)
