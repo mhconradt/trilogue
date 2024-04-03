@@ -57,6 +57,9 @@ class Player:
     def display_name(self) -> str:
         return f"Player #{self.index} ({self.name})"
 
+    def __repr__(self):
+        return self.display_name
+
 
 @dataclasses.dataclass
 class Message:
@@ -163,13 +166,18 @@ def get_npc(*, index: int, default: Character):
     return Player(character=character, name=character.display_name, index=index)
 
 
+def get_system_prompt(current: Player, human: Player, opponent: Player) -> str:
+    return f"""You are {current}. You are in a three-way conversation with a human user, {human}, and {opponent}, another AI, potentially another copy of yourself."""
+
+
 player1 = get_player_character()
 player2 = get_npc(index=2, default=Character.CLAUDE_3_OPUS)
-player2_prompt_default = f"You are {player2.display_name}. You are in a three-way conversation with a human user, {player.display_name}, and Player #3, another AI, potentially another copy of yourself."
-player2_prompt = st.text_area('Player #2 System Prompt', value=player2_prompt_default)
 player3 = get_npc(index=3, default=Character.GPT_4)
-player3_prompt_default = f"You are {player3.display_name}. You are in a three-way conversation with a human user, {player.display_name}, and {player2.display_name}, another AI, potentially another copy of yourself."
-player3_prompt = st.text_area('Player #3 System Prompt', value=player3_prompt_default)
+with st.expander("Advanced"):
+    player2_prompt_default = get_system_prompt(player2, player1, player3)
+    player2_prompt = st.text_area('Player #2 System Prompt', value=player2_prompt_default)
+    player3_prompt_default = get_system_prompt(player3, player1, player2)
+    player3_prompt = st.text_area('Player #3 System Prompt', value=player3_prompt_default)
 
 for previous_message in st.session_state.messages:
     previous_message.render()
