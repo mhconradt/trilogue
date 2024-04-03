@@ -163,7 +163,7 @@ def get_npc(*, index: int, default: Character):
     return Player(character=character, name=character.display_name, index=index)
 
 
-player = get_player_character()
+player1 = get_player_character()
 player2 = get_npc(index=2, default=Character.CLAUDE_3_OPUS)
 player2_prompt_default = f"You are {player2.display_name}. You are in a three-way conversation with a human user, {player.display_name}, and Player #3, another AI, potentially another copy of yourself."
 player2_prompt = st.text_area('Player #2 System Prompt', value=player2_prompt_default)
@@ -175,7 +175,7 @@ for previous_message in st.session_state.messages:
     previous_message.render()
 
 if prompt := st.chat_input():
-    user_message = Message(player=player, content=prompt)
+    user_message = Message(player=player1, content=prompt)
     st.session_state.messages.append(user_message)
     user_message.render()
     player2_backend = create_backend(player2, player2_prompt)
