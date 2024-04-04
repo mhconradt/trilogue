@@ -70,10 +70,13 @@ class Message:
     def _clean_iterable(self, content: Iterable[str]) -> Iterable[str]:
         continue_ = True
         it = iter(content)
+        prefix = self.message_prefix
         try:
             while continue_:
                 chunk = next(it)
-                clean = self._clean_content(chunk)
+                clean = self._clean_content(chunk, prefix)
+                chopped_len = len(chunk) - len(clean)
+                prefix = prefix[chopped_len:]
                 if clean:
                     yield clean
                     continue_ = False
@@ -81,8 +84,11 @@ class Message:
         except StopIteration:
             return
 
-    def _clean_content(self, content: str) -> str:
-        return content.removeprefix(self.message_prefix).lstrip(string.punctuation)
+    def _clean_content(self, content: str, prefix: str | None = None) -> str:
+        if prefix is None:
+            prefix = self.message_prefix
+        prefix = prefix[:len(content)]
+        return content.removeprefix(prefix)
 
     def _ensure_clean_content_iterable(self) -> Iterable[str]:
         content = self.content
@@ -121,7 +127,6 @@ class OpenAIBackend:
     def get_message_history(self, history: list[Message]) -> list[dict]:
         messages = [
             {"role": "system", "content": self.system_prompt},
-
             {"role": "system",
              "content": "Do not include a name in your message. Names will be included by the system."},
         ]
@@ -204,7 +209,7 @@ if 'messages' not in st.session_state:
 
 
 def get_player_character():
-    player1_name = st.text_input('Player #1', placeholder='User')
+    player1_name = st.text_input('Player #1', placeholder='Mira')
     if not player1_name:
         player1_name = 'User'
     return Player(character=Character.USER, name=player1_name, index=1)
