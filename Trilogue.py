@@ -143,6 +143,8 @@ class OpenAIBackend:
             model=self.self_.character.model_slug,
             messages=self.get_message_history(history),
             stream=True,
+            temperature=temperature,
+            top_p=top_p,
         )
         for chunk in resp:
             chunk_content = chunk.choices[0].delta.content
@@ -181,6 +183,8 @@ class AnthropicBackend:
                 model=self.self_.character.model_slug,
                 messages=self.get_message_history(history),
                 max_tokens=1024,
+                temperature=temperature,
+                top_p=top_p,
         ) as stream:
             yield from stream.text_stream
 
@@ -224,6 +228,8 @@ with st.expander("Advanced"):
     player2_prompt = st.text_area('Player #2 System Prompt', value=player2_prompt_default)
     player3_prompt_default = get_system_prompt(player3, player1, player2)
     player3_prompt = st.text_area('Player #3 System Prompt', value=player3_prompt_default)
+    top_p = st.slider(label='Top-p', min_value=0.0, max_value=1.0, value=1.0)
+    temperature = st.slider(label='Temperature', min_value=0.0, max_value=1.0, value=1.0)
 
 for previous_message in st.session_state.messages:
     previous_message.render()
