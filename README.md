@@ -6,6 +6,14 @@ To install the project's dependencies, run this command:
 pip install -r requirements.txt
 ```
 
+## Configuration
+
+Ensure you have valid OpenAI and Anthropic API keys stored in `~/.streamlit/secrets.toml`:
+```toml
+OPENAI_API_KEY="sk-..."
+ANTHROPIC_API_KEY="sk-ant-..."
+```
+
 ## Running
 
 The following command will run the app:
