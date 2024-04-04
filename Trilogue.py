@@ -119,7 +119,12 @@ class OpenAIBackend:
         self.self_ = self_
 
     def get_message_history(self, history: list[Message]) -> list[dict]:
-        messages = [{"role": "system", "content": self.system_prompt}]
+        messages = [
+            {"role": "system", "content": self.system_prompt},
+
+            {"role": "system",
+             "content": "Do not include a name in your message. Names will be included by the system."},
+        ]
         for m in history:
             if not isinstance(m.content, str):
                 break
