@@ -13,6 +13,7 @@ Ensure you have valid OpenAI and Anthropic API keys stored in `~/.streamlit/secr
 OPENAI_API_KEY="sk-..."
 ANTHROPIC_API_KEY="sk-ant-..."
 ```
+Streamlit sets these as environment variables in `streamlit run`
 
 ## Running
 
