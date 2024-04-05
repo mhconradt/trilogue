@@ -224,16 +224,19 @@ def get_system_prompt(current: Player, human: Player, opponent: Player) -> str:
     return f"""You are {current}. You are in a three-way conversation with a human user, {human}, and {opponent}, another AI, potentially another copy of yourself."""
 
 
-player1 = get_player_character()
-player2 = get_npc(index=2, default=Character.CLAUDE_3_OPUS)
-player3 = get_npc(index=3, default=Character.GPT_4)
-with st.expander("Advanced"):
-    player2_prompt_default = get_system_prompt(player2, player1, player3)
-    player2_prompt = st.text_area('Player #2 System Prompt', value=player2_prompt_default)
-    player3_prompt_default = get_system_prompt(player3, player1, player2)
-    player3_prompt = st.text_area('Player #3 System Prompt', value=player3_prompt_default)
-    top_p = st.slider(label='Top-p', min_value=0.0, max_value=1.0, value=1.0)
-    temperature = st.slider(label='Temperature', min_value=0.0, max_value=1.0, value=1.0)
+with st.sidebar:
+    player1 = get_player_character()
+    player2 = get_npc(index=2, default=Character.CLAUDE_3_OPUS)
+    player3 = get_npc(index=3, default=Character.GPT_4)
+    if st.button(label='Clear History 🔄'):
+        st.session_state.messages = []
+    with st.expander("Advanced"):
+        player2_prompt_default = get_system_prompt(player2, player1, player3)
+        player2_prompt = st.text_area('Player #2 System Prompt', value=player2_prompt_default)
+        player3_prompt_default = get_system_prompt(player3, player1, player2)
+        player3_prompt = st.text_area('Player #3 System Prompt', value=player3_prompt_default)
+        top_p = st.slider(label='Top-p', min_value=0.0, max_value=1.0, value=1.0)
+        temperature = st.slider(label='Temperature', min_value=0.0, max_value=1.0, value=1.0)
 
 for previous_message in st.session_state.messages:
     previous_message.render()
