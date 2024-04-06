@@ -2,6 +2,7 @@ import dataclasses
 from enum import Enum
 from typing import Iterable
 
+import cohere
 import streamlit as st
 from anthropic import Anthropic
 from openai import OpenAI
@@ -12,10 +13,14 @@ class Character(str, Enum):
     USER = 'USER'
     CLAUDE_3_OPUS = 'CLAUDE_3_OPUS'
     GPT_4 = 'GPT_4'
+    GPT_35 = 'GPT_35'
+    COMMAND_R_PLUS = 'COMMAND_R_PLUS'
+    COMMAND_R = 'COMMAND_R'
 
     @classmethod
     def bots(cls) -> "list[Character]":
-        return [Character.CLAUDE_3_OPUS, Character.GPT_4]
+        return [Character.CLAUDE_3_OPUS, Character.COMMAND_R_PLUS, Character.COMMAND_R, Character.GPT_4,
+                Character.GPT_35]
 
     @property
     def npc(self) -> bool:
@@ -28,6 +33,12 @@ class Character(str, Enum):
                 return 'claude-3-opus-20240229'
             case Character.GPT_4:
                 return 'gpt-4'
+            case Character.GPT_35:
+                return 'gpt-3.5-turbo'
+            case Character.COMMAND_R_PLUS:
+                return 'command-r-plus'
+            case Character.COMMAND_R:
+                return 'command-r'
             case _:
                 raise NotImplemented
 
@@ -38,6 +49,12 @@ class Character(str, Enum):
                 return 'Claude 3 Opus'
             case Character.GPT_4:
                 return 'GPT-4'
+            case Character.GPT_35:
+                return 'GPT-3.5'
+            case Character.COMMAND_R_PLUS:
+                return 'Command R+'
+            case Character.COMMAND_R:
+                return 'Command R'
             case _:
                 raise NotImplementedError(self)
 
@@ -193,12 +210,41 @@ class AnthropicBackend:
             yield from stream.text_stream
 
 
-def create_backend(player: Player, system_prompt: str) -> AnthropicBackend | OpenAIBackend:
+class CohereBackend:
+    def __init__(self, client: cohere.Client, system_prompt: str, player: Player):
+        self.client = client
+        self.system_prompt = system_prompt
+        self.player = player
+
+    def _convert_role(self, role: str) -> str:
+        return {'user': 'USER', 'assistant': 'CHATBOT', 'system': 'SYSTEM'}[role]
+
+    def _convert_message(self, m: Message) -> dict:
+        return {
+            'role': self._convert_role(self.player.character.role_from_own_perspective(m.player.character)),
+            'message': m.llm_content,
+        }
+
+    def get_next_message(self, history: list[Message]) -> Message:
+        system = {'role': 'SYSTEM', 'message': self.system_prompt}
+        encoded = [self._convert_message(m) for m in history]
+        response = self.client.chat(
+            model=self.player.character.model_slug,
+            chat_history=[system, *encoded[:-1]],
+            message=encoded[-1]['message'],
+            connectors=[{'id': 'web-search'}]
+        )
+        return Message(player=self.player, content=response.text)
+
+
+def create_backend(player: Player, system_prompt: str) -> AnthropicBackend | OpenAIBackend | CohereBackend:
     match player.character:
-        case Character.GPT_4:
+        case Character.GPT_4 | Character.GPT_35:
             return OpenAIBackend(OpenAI(), system_prompt, player)
         case Character.CLAUDE_3_OPUS:
             return AnthropicBackend(Anthropic(), system_prompt, player)
+        case Character.COMMAND_R | Character.COMMAND_R_PLUS:
+            return CohereBackend(cohere.Client(), system_prompt, player)
         case _:
             raise NotImplementedError(player)
 
@@ -227,7 +273,7 @@ def get_system_prompt(current: Player, human: Player, opponent: Player) -> str:
 with st.sidebar:
     player1 = get_player_character()
     player2 = get_npc(index=2, default=Character.CLAUDE_3_OPUS)
-    player3 = get_npc(index=3, default=Character.GPT_4)
+    player3 = get_npc(index=3, default=Character.COMMAND_R_PLUS)
     if st.button(label='Clear History 🔄'):
         st.session_state.messages = []
     with st.expander("Advanced"):

@@ -10,9 +10,11 @@ cachetools==5.3.3
 certifi==2024.2.2
 charset-normalizer==3.3.2
 click==8.1.7
+cohere==5.2.2
 decorator==5.1.1
 distro==1.9.0
 executing==2.0.1
+fastavro==1.9.4
 filelock==3.13.3
 fsspec==2024.3.1
 gitdb==4.0.11
@@ -69,6 +71,7 @@ toolz==0.12.1
 tornado==6.4
 tqdm==4.66.2
 traitlets==5.14.2
+types-requests==2.31.0.20240406
 typing_extensions==4.10.0
 tzdata==2024.1
 urllib3==2.2.1
