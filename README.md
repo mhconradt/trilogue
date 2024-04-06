@@ -8,10 +8,11 @@ pip install -r requirements.txt
 
 ## Configuration
 
-Ensure you have valid OpenAI and Anthropic API keys stored in `~/.streamlit/secrets.toml`:
+Ensure you have valid API keys stored in `~/.streamlit/secrets.toml` (you only need them for the models you use):
 ```toml
 OPENAI_API_KEY="sk-..."
 ANTHROPIC_API_KEY="sk-ant-..."
+CO_API_KEY="..."
 ```
 Streamlit sets these as environment variables in `streamlit run`
 
